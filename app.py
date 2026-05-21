@@ -87,9 +87,8 @@ def calcular_cuota_hipoteca(principal, tasa_anual, anos):
 def calcular_tir(flujos):
     from numpy import irr as np_irr
     try:
-        return np.irr(flujos) * 12 * 100
+        return np_irr(flujos) * 12 * 100
     except Exception:
-        # fallback manual
         tir = None
         for r in np.linspace(-0.5, 5.0, 10000):
             npv = sum(f / (1 + r/12)**i for i, f in enumerate(flujos))
@@ -171,7 +170,6 @@ with tab1:
         mantenimiento = st.number_input("Mantenimiento estimado (€/año)", value=500, step=100, key="c_mant")
         gestion = st.slider("Gestoría / agencia alquiler (%)", 0, 15, 8, key="c_gest")
 
-    # ── Cálculos ──
     gastos_adquisicion = precio_compra * itp / 100 + gastos_notaria + gastos_agencia + reforma_inicial
     coste_total = precio_compra + gastos_adquisicion
 
@@ -195,7 +193,6 @@ with tab1:
     cash_on_cash = cash_flow_anual / inversion_propia * 100 if inversion_propia > 0 else 0
     dscr = noi / cuota_anual if cuota_anual > 0 else 999
 
-    # ── Métricas ──
     st.markdown("---")
     st.markdown("**Resultados**")
     cols = st.columns(4)
@@ -221,7 +218,6 @@ with tab1:
         with cols2[i]:
             st.markdown(metric_card(label, val, color), unsafe_allow_html=True)
 
-    # ── Evolución patrimonial ──
     st.markdown("---")
     st.markdown("**Evolución patrimonial (20 años)**")
     revalorizacion_anual = st.slider("Revalorización anual del inmueble (%)", 0.0, 5.0, 2.0, step=0.5, key="c_reval")
@@ -288,7 +284,6 @@ with tab2:
         with cols_h[i]:
             st.markdown(metric_card(l, v, c), unsafe_allow_html=True)
 
-    # Tabla de amortización
     st.markdown("---")
     st.markdown("**Tabla de amortización anual**")
     r = h_tasa_fijo / 100 / 12
@@ -314,31 +309,30 @@ with tab2:
         })
 
     df_hip = pd.DataFrame(filas)
-   
 
-    # Gráfico fijo vs variable
+    def color_saldo(val):
+        max_val = h_principal if h_principal > 0 else 1
+        pct = val / max_val
+        r = int(224 * pct + 76 * (1 - pct))
+        g = int(92 * pct + 175 * (1 - pct))
+        b = int(92 * pct + 130 * (1 - pct))
+        return f'background-color: rgb({r},{g},{b}); color: #0f1117'
+
+    styled = df_hip.style.format({
+        "Cuota Anual (€)": "{:,.2f}",
+        "Intereses (€)": "{:,.2f}",
+        "Capital Amortizado (€)": "{:,.2f}",
+        "Saldo Pendiente (€)": "{:,.2f}",
+    }).map(color_saldo, subset=["Saldo Pendiente (€)"])
+
+    st.dataframe(styled, use_container_width=True, height=350)
+
     st.markdown("**Comparativa fijo vs. variable**")
     fig_hip = go.Figure()
     fig_hip.add_trace(go.Bar(name='Fijo', x=df_hip["Año"], y=df_hip["Cuota Anual (€)"],
                               marker_color='#4f8ef7'))
     cuotas_var = [calcular_cuota_hipoteca(max(0, df_hip.loc[i,"Saldo Pendiente (€)"]),
-                                  def color_saldo(val):
-        max_val = h_principal
-        pct = val / max_val if max_val > 0 else 0
-        r = int(76 + (224 - 76) * pct)
-        g = int(175 - (175 - 92) * pct)
-        b = int(130 - (130 - 92) * pct)
-        return f'background-color: rgb({r},{g},{b}); color: #0f1117'
-
-    styled = df_hip.style\
-        .format({
-            "Cuota Anual (€)": "{:,.2f}",
-            "Intereses (€)": "{:,.2f}",
-            "Capital Amortizado (€)": "{:,.2f}",
-            "Saldo Pendiente (€)": "{:,.2f}",
-        }).map(color_saldo, subset=["Saldo Pendiente (€)"])
-
-    st.dataframe(styled, use_container_width=True, height=350)            h_tasa_variable, int(h_anos) - i) * 12
+                                          h_tasa_variable, int(h_anos) - i) * 12
                   for i in range(len(df_hip))]
     fig_hip.add_trace(go.Scatter(name='Variable', x=df_hip["Año"], y=cuotas_var,
                                   line=dict(color='#e05c5c', width=2)))
@@ -390,7 +384,6 @@ with tab3:
         with cols_f[i]:
             st.markdown(metric_card(l, v, c), unsafe_allow_html=True)
 
-    # Waterfall de costes y beneficio
     st.markdown("---")
     st.markdown("**Desglose de la operación**")
     fig_wf = go.Figure(go.Waterfall(
@@ -440,7 +433,7 @@ with tab4:
     ingreso_neto_t = ingresos_brutos_t - gastos_totales_t
     rent_turistica = ingreso_neto_t / (t_precio + t_gastos_adq) * 100
 
-    ingreso_neto_resid = t_alquiler_residencial * 12 * 0.85  # aprox neto
+    ingreso_neto_resid = t_alquiler_residencial * 12 * 0.85
     rent_residencial = ingreso_neto_resid / (t_precio + t_gastos_adq) * 100
 
     st.markdown("---")
@@ -455,7 +448,6 @@ with tab4:
         with cols_t[i]:
             st.markdown(metric_card(l, v, c), unsafe_allow_html=True)
 
-    # Gráfico comparativo
     st.markdown("---")
     st.markdown("**Comparativa por modalidad de alquiler**")
     fig_comp = go.Figure()
@@ -519,14 +511,13 @@ with tab5:
                 colors.append('')
         return colors
 
-    styled = df_comp.style\
+    styled_comp = df_comp.style\
         .format("{:,.2f}", subset=["Rent. Bruta (%)", "Rent. Neta (%)"])\
         .format("{:,.0f}", subset=["Precio (€)", "Alquiler/mes (€)", "NOI Anual (€)", "Inversión Total (€)"])\
         .apply(color_mejor, subset=["Rent. Bruta (%)", "Rent. Neta (%)"])
 
-    st.dataframe(styled, use_container_width=True)
+    st.dataframe(styled_comp, use_container_width=True)
 
-    # Gráfico radar
     if len(activos) >= 2:
         st.markdown("**Análisis visual comparativo**")
         categorias_radar = ["Rent. Bruta (%)", "Rent. Neta (%)"]
@@ -585,11 +576,9 @@ with tab6:
             cf_acumulado.append(sum(flujos[1:]))
             precio_venta_final *= (1 + params["reval"] / 100)
 
-        flujos[-1] += precio_venta_final  # venta al final
-        tir = calcular_van(flujos, 0) # comprobación
+        flujos[-1] += precio_venta_final
         van = calcular_van(flujos, e_tasa)
 
-        # TIR por aproximación
         tir_val = None
         for r_test in np.linspace(0.001, 2.0, 50000):
             npv_test = sum(f / (1 + r_test)**i for i, f in enumerate(flujos))
@@ -608,7 +597,6 @@ with tab6:
             fillcolor='rgba(79,142,247,0.06)' if nombre_esc == "Base" else None
         ))
 
-    # Mostrar TIR y VAN
     cols_esc = st.columns(3)
     for i, (nombre_esc, res) in enumerate(resultados_esc.items()):
         with cols_esc[i]:
