@@ -314,15 +314,7 @@ with tab2:
         })
 
     df_hip = pd.DataFrame(filas)
-    st.dataframe(
-        df_hip.style.format({
-            "Cuota Anual (€)": "{:,.2f}",
-            "Intereses (€)": "{:,.2f}",
-            "Capital Amortizado (€)": "{:,.2f}",
-            "Saldo Pendiente (€)": "{:,.2f}",
-        }).background_gradient(subset=["Saldo Pendiente (€)"], cmap="RdYlGn_r"),
-        use_container_width=True, height=350
-    )
+   
 
     # Gráfico fijo vs variable
     st.markdown("**Comparativa fijo vs. variable**")
@@ -330,7 +322,23 @@ with tab2:
     fig_hip.add_trace(go.Bar(name='Fijo', x=df_hip["Año"], y=df_hip["Cuota Anual (€)"],
                               marker_color='#4f8ef7'))
     cuotas_var = [calcular_cuota_hipoteca(max(0, df_hip.loc[i,"Saldo Pendiente (€)"]),
-                                          h_tasa_variable, int(h_anos) - i) * 12
+                                  def color_saldo(val):
+        max_val = h_principal
+        pct = val / max_val if max_val > 0 else 0
+        r = int(76 + (224 - 76) * pct)
+        g = int(175 - (175 - 92) * pct)
+        b = int(130 - (130 - 92) * pct)
+        return f'background-color: rgb({r},{g},{b}); color: #0f1117'
+
+    styled = df_hip.style\
+        .format({
+            "Cuota Anual (€)": "{:,.2f}",
+            "Intereses (€)": "{:,.2f}",
+            "Capital Amortizado (€)": "{:,.2f}",
+            "Saldo Pendiente (€)": "{:,.2f}",
+        }).map(color_saldo, subset=["Saldo Pendiente (€)"])
+
+    st.dataframe(styled, use_container_width=True, height=350)            h_tasa_variable, int(h_anos) - i) * 12
                   for i in range(len(df_hip))]
     fig_hip.add_trace(go.Scatter(name='Variable', x=df_hip["Año"], y=cuotas_var,
                                   line=dict(color='#e05c5c', width=2)))
